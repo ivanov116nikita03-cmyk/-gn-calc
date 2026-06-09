@@ -167,26 +167,6 @@ body::before {
 }
 .receipt.show { display: block; animation: fade 0.25s; }
 .receipt-inner { max-width: 480px; margin: 0 auto; padding: 16px 16px 40px; position: relative; z-index: 1; }
-/* «Бумажный чек»: карточка разворачивается сверху вниз, содержимое подъезжает */
-.receipt.show .receipt-card {
-  transform-origin: top center;
-  animation: unroll 0.55s cubic-bezier(.2,.8,.25,1) both;
-}
-@keyframes unroll {
-  0%   { opacity:0; transform: translateY(-14px) scaleY(0.04); }
-  55%  { opacity:1; transform: translateY(0)      scaleY(1.03); }
-  75%  {            transform: scaleY(0.985); }
-  100% { opacity:1; transform: none; }
-}
-.receipt.show .receipt-card > * {
-  animation: receiptRise 0.4s cubic-bezier(.2,.7,.3,1) both;
-  animation-delay: 0.30s;
-}
-.receipt.show .receipt-card > .receipt-params   { animation-delay: 0.36s; }
-.receipt.show .receipt-card > .receipt-includes { animation-delay: 0.42s; }
-.receipt.show .receipt-card > .receipt-total    { animation-delay: 0.48s; }
-.receipt.show .receipt-card > .receipt-foot     { animation-delay: 0.54s; }
-@keyframes receiptRise { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: none; } }
 .receipt-back {
   background: none; border: none; color: var(--white); font-size: 15px; font-weight: 700;
   cursor: pointer; display: flex; align-items: center; gap: 7px; padding: 10px 4px; margin-bottom: 8px;
@@ -214,6 +194,9 @@ body::before {
 .ri-title { font-size: 12px; font-weight: 800; color: var(--teal-dk); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
 .ri-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 15px; font-weight: 600; color: var(--ink); }
 .ri-item svg { width: 18px; height: 18px; stroke: var(--gold); fill: none; flex-shrink: 0; }
+/* строки расчёта внутри чека — тот же вид, что в нижней панели, чуть просторнее */
+.receipt-includes .total-row { font-size: 14px; padding: 5px 0; }
+.receipt-includes .total-row + .total-row { border-top: 1px solid #e2eded; }
 .receipt-total { text-align: center; padding: 8px 0 4px; }
 .rt-label { display: block; font-size: 12px; color: #8aa3a4; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
 .rt-sum { display: block; font-size: 48px; font-weight: 900; color: var(--ink); letter-spacing: -2px; line-height: 1.1; margin: 4px 0; }
@@ -364,7 +347,7 @@ body::before {
       <div class="receipt-badge" id="receiptMode">Игра в студии</div>
       <div class="receipt-params" id="receiptParams"></div>
       <div class="receipt-includes">
-        <div class="ri-title">В стоимость входит</div>
+        <div class="ri-title">Детали расчёта</div>
         <div id="receiptIncludes"></div>
       </div>
       <div class="receipt-total">
@@ -589,25 +572,10 @@ function openReceipt(){
   }
   document.getElementById("receiptParams").innerHTML = params.join("");
 
-  // Что входит (без цен) — базовое + выбранные допы
-  const check = '<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>';
-  let inc = [];
-  inc.push(`${check} Профессиональный ведущий`);
-  inc.push(`${check} Диджей с оборудованием`);
-  inc.push(`${check} Реквизит ТВ-шоу`);
-  if(state.mode==="vyezd") inc.push(`${check} Выезд и вся техника`);
-  // допуслуги (название без цены)
-  for(const a of c.addons){
-    if(state.addons[a.id]){
-      const q=state.addons[a.id];
-      inc.push(`${check} ${a.name}${q>1?' ×'+q:''}`);
-    }
-  }
-  if(state.mode==="studio" && state.birthday && state.guests>=c.studio.birthdayFreeFrom){
-    inc.push(`${check} Именинник бесплатно 🎂`);
-  }
+  // Что входит — строки расчёта один в один как в нижней панели (название + цена)
   document.getElementById("receiptIncludes").innerHTML =
-    inc.map(t=>`<div class="ri-item">${t}</div>`).join("");
+    r.lines.map(([l,v])=>`<div class="total-row"><span>${l}</span><span>${v.toLocaleString('ru')} ₽</span></div>`).join("")
+    + (r.rsAmount?`<div class="total-row rs"><span>+10% по РС</span><span>${r.rsAmount.toLocaleString('ru')} ₽</span></div>`:"");
 
   // Итог
   document.getElementById("receiptSum").textContent = `${r.total.toLocaleString('ru')} ₽`;
@@ -616,9 +584,7 @@ function openReceipt(){
     pp.textContent = `${Math.round(r.total/state.guests).toLocaleString('ru')} ₽ за человека`;
   } else { pp.textContent = state.rs ? "оплата по расчётному счёту" : ""; }
 
-  const rc=document.getElementById("receipt");
-  // перезапуск «разворачивания» чека при каждом открытии: снять .show, форс-reflow, вернуть
-  rc.classList.remove("show"); void rc.offsetWidth; rc.classList.add("show");
+  document.getElementById("receipt").classList.add("show");
 }
 function closeReceipt(){ document.getElementById("receipt").classList.remove("show"); }
 
